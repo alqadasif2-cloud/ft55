@@ -69,6 +69,7 @@ export const SubscriptionDetailModal: React.FC<SubscriptionDetailModalProps> = (
     () => initialCachedConsent?.termsVersion ?? null
   );
   const [isSubmittingConsent, setIsSubmittingConsent] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   // Determine initial payment method: prioritize plan's primary wallet if configured
   const hasPrimaryWallet = Boolean(plan.walletAddress && plan.walletAddress.trim().length > 0);
@@ -97,6 +98,7 @@ export const SubscriptionDetailModal: React.FC<SubscriptionDetailModalProps> = (
     setTermsSearchQuery('');
     setCopiedKey(null);
     setCopyToast(null);
+    setConsentError(null);
   }, [plan.id, plan.termsVersion, currentUser?.id, isGuest, hasPrimaryWallet, activeMethods]);
 
   // Background refresh of consent in background without blocking initial UI render
@@ -181,7 +183,7 @@ export const SubscriptionDetailModal: React.FC<SubscriptionDetailModalProps> = (
     }
 
     if (requiresConsent && !hasAgreedToTerms && currentUser) {
-      alert('يرجى الموافقة على شروط وأحكام الانضمام الرسمية أولاً للمتابعة.');
+      setConsentError('يرجى وضع علامة الموافقة على شروط وأحكام الانضمام الرسمية أدناه للمتابعة.');
       return;
     }
 
@@ -714,13 +716,23 @@ export const SubscriptionDetailModal: React.FC<SubscriptionDetailModalProps> = (
                   <input
                     type="checkbox"
                     checked={hasAgreedToTerms}
-                    onChange={(e) => setHasAgreedToTerms(e.target.checked)}
+                    onChange={(e) => {
+                      setHasAgreedToTerms(e.target.checked);
+                      if (e.target.checked) setConsentError(null);
+                    }}
                     className="mt-1 w-4 h-4 text-amber-500 rounded bg-slate-900 border-slate-700 focus:ring-amber-400 cursor-pointer"
                   />
                   <span className="text-xs font-bold text-amber-200 leading-relaxed">
                     أقر بموافقتي الكاملة والتزامي بجميع بنود وشروط وقوانين الانضباط الـ 16 الخاصة بعضوية قناة Sami VIP (الإصدار v{plan.termsVersion}) وإدارة المخاطر.
                   </span>
                 </label>
+
+                {consentError && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold animate-in shake duration-200">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{consentError}</span>
+                  </div>
+                )}
 
                 {userPreviousConsentVersion && userPreviousConsentVersion !== plan.termsVersion && (
                   <div className="flex items-center gap-1.5 text-[11px] text-amber-400/90 pr-7 font-medium">

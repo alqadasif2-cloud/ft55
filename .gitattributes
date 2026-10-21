@@ -1,0 +1,16 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Enforce LF endings on shell scripts and Gradle wrapper to prevent bash \r errors on Linux runners
+*.sh text eol=lf
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+
+# Binary formats
+*.p12 binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.apk binary

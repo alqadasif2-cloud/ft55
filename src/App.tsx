@@ -31,7 +31,7 @@ import {
   shouldPromptUpdate,
   AppUpdateConfig,
 } from './services/appUpdates';
-import { Smartphone, Monitor, Wifi, Battery, Signal, Bell, X } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 import {
   getSavedUserSession,
   saveUserSession,
@@ -151,8 +151,6 @@ export default function App() {
   const isUpdateAvailable = shouldPromptUpdate(appUpdateConfig);
   const showUpdateModal = isUpdateAvailable && (!userDismissedUpdate || Boolean(appUpdateConfig?.isMandatory));
 
-  // Mobile Frame Toggle
-  const [isMobileFrame, setIsMobileFrame] = useState(true);
 
   // Confirmation Modals State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -457,7 +455,7 @@ export default function App() {
   const isDashboard = activeTab === 'dashboard';
 
   return (
-    <div className="min-h-screen bg-[#070a10] text-slate-100 flex flex-col items-center justify-start sm:py-6 selection:bg-amber-400 selection:text-black">
+    <div className="min-h-screen w-full bg-[#070a10] text-slate-100 flex flex-col selection:bg-amber-400 selection:text-black font-['Cairo']">
       {/* Background Image ONLY on Dashboard Screen (and Login Screen above) */}
       {isDashboard && <BackgroundVideo overlayOpacity="bg-black/65" />}
 
@@ -491,66 +489,14 @@ export default function App() {
         </div>
       )}
 
-      {/* Top Device Viewport Controls */}
-      <header className="w-full max-w-md px-4 py-2 flex items-center justify-between text-xs text-slate-400 border-b border-slate-900/60 mb-1 sm:mb-3 z-10">
-        <span className="font-bold text-slate-200 tracking-wide flex items-center gap-2">
-          <img
-            src="/app-icon.png"
-            alt="Sami Logo"
-            className="w-5 h-5 rounded-md object-cover border border-amber-400/40 shadow-sm"
-            referrerPolicy="no-referrer"
-          />
-          <span className="text-amber-400 font-extrabold text-sm">Sami</span>
-          <span className="text-slate-400 text-[11px] font-normal">• متتبع الرحلة والمجتمع</span>
-        </span>
-
-        <button
-          onClick={() => setIsMobileFrame(!isMobileFrame)}
-          className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-800 transition-colors"
-          title="تبديل حجم الإطار"
-        >
-          {isMobileFrame ? (
-            <>
-              <Monitor className="w-3.5 h-3.5" />
-              <span>شاشة كاملة</span>
-            </>
-          ) : (
-            <>
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>إطار الهاتف</span>
-            </>
-          )}
-        </button>
-      </header>
-
-      {/* Main Container / Mobile Device Wrapper */}
+      {/* Main Container - Native Application Screen */}
       <main
-        className={`w-full relative z-10 flex flex-col transition-all duration-300 ${
+        className={`w-full max-w-2xl mx-auto flex-1 relative z-10 flex flex-col transition-all duration-300 ${
           isDashboard ? 'bg-transparent' : 'bg-[#0b0f17]'
-        } ${
-          isMobileFrame
-            ? 'max-w-md min-h-[92vh] sm:min-h-[844px] sm:max-h-[94vh] sm:rounded-[40px] sm:border-[6px] sm:border-slate-800/90 sm:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden'
-            : 'max-w-2xl min-h-screen'
         }`}
       >
-        {/* Mobile Device Status Bar */}
-        <div className="flex items-center justify-between px-6 pt-3 pb-1 text-xs text-slate-400 select-none z-30 shrink-0">
-          <span className="font-['JetBrains_Mono',monospace] font-bold text-slate-200">
-            16:20
-          </span>
-
-          {/* Device Speaker Notch in Phone Frame */}
-          <div className="hidden sm:block w-24 h-4 bg-slate-900/90 rounded-full border border-slate-800/80 shadow-inner" />
-
-          <div className="flex items-center gap-1.5">
-            <Signal className="w-3.5 h-3.5 text-slate-300" />
-            <Wifi className="w-3.5 h-3.5 text-slate-300" />
-            <Battery className="w-4 h-4 text-slate-200" />
-          </div>
-        </div>
-
         {/* Inner Scrollable Screen Content */}
-        <div className="flex-1 overflow-y-auto px-4 pt-2">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-2">
           {activeTab === 'dashboard' &&
             (currentUser.role === 'moderator' ? (
               <ModeratorHomeScreen

@@ -6,35 +6,51 @@ on:
       - main
       - master
       - '**'
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish as GitHub Release for direct public download'
+        required: false
+        type: boolean
+        default: true
+      release_tag:
+        description: 'Release Tag (e.g. v1.3.0)'
+        required: false
+        default: 'v1.3.0'
 
 permissions:
-  contents: read
+  contents: write
   actions: write
+  packages: write
 
 jobs:
   build-android-apk:
     name: Build & Package Sami Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: 1. Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: 2. Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: 3. Install Web dependencies
         run: |
-          echo "Installing dependencies..."
-          npm install --legacy-peer-deps
+          echo "Installing dependencies with legacy peer deps fallback..."
+          npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: 4. Build Web App & Update Android Assets
         run: |
@@ -48,7 +64,14 @@ jobs:
           mkdir -p app/src/main/assets
           cp -r dist/* app/src/main/assets/
           rm -f app/src/main/assets/*.zip
-          ls -la app/src/main/assets/
+
+          # Safety check to prevent blank/black screen:
+          if [ ! -f "app/src/main/assets/index.html" ] || [ ! -s "app/src/main/assets/index.html" ]; then
+            echo "::error::CRITICAL: app/src/main/assets/index.html is missing or empty! This would cause a black screen."
+            exit 1
+          fi
+          echo "Assets verified successfully:"
+          ls -lh app/src/main/assets/
 
       - name: 5. Set up Java JDK 17
         uses: actions/setup-java@v4
@@ -57,17 +80,25 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: 6. Grant execute permissions for Gradle wrapper
-        run: chmod +x ./gradlew
+      - name: 6. Set up Android SDK & Accept Licenses
+        run: |
+          echo "Accepting Android SDK licenses..."
+          yes | sdkmanager --licenses 2>/dev/null || true
 
-      - name: 7. Verify Signing Keystore
+      - name: 7. Prepare Gradle wrapper
+        run: |
+          echo "Ensuring Linux line endings and executable permission on gradlew..."
+          sed -i -e 's/\r$//' ./gradlew
+          chmod +x ./gradlew
+
+      - name: 8. Verify Signing Keystore
         run: |
           echo "Validating keystore..."
           if [ -f app/sami-signing-key.p12 ]; then
             echo "Universal signing key found at app/sami-signing-key.p12."
             keytool -list -keystore app/sami-signing-key.p12 -storepass samitrading -storetype PKCS12 || echo "Keystore listed"
           else
-            echo "Generating new signing keystore..."
+            echo "Generating signing keystore..."
             keytool -genkeypair -v \
               -keystore app/sami-signing-key.p12 \
               -storetype PKCS12 \
@@ -80,12 +111,14 @@ jobs:
               -dname "CN=Sami Trading Challenge, OU=Mobile, O=Sami, L=Riyadh, ST=Riyadh, C=SA"
           fi
 
-      - name: 8. Build Universal Signed Release APK with Gradle
+      - name: 9. Build Universal Signed Release APK with Gradle
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=\"-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError\""
         run: |
           echo "Building single Universal Release APK..."
           ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: 9. Verify Generated Release APK and Prepare Single Deliverable
+      - name: 10. Verify Generated Release APK and Prepare Single Deliverable
         run: |
           mkdir -p build_output_apk
 
@@ -101,9 +134,19 @@ jobs:
           echo "Found Release APK: $RELEASE_APK"
           echo "Release APK size: $RELEASE_SIZE bytes (~$RELEASE_SIZE_MB MB)"
 
-          if [ "$RELEASE_SIZE" -lt 1000000 ]; then
+          if [ "$RELEASE_SIZE" -lt 5000000 ]; then
             echo "::error::Release APK exists but is suspiciously small ($RELEASE_SIZE bytes)."
             exit 1
+          fi
+
+          # Verify that index.html is actually inside the APK
+          if command -v unzip >/dev/null 2>&1; then
+            if unzip -l "$RELEASE_APK" | grep -q "assets/index.html"; then
+              echo "✅ Verified: assets/index.html is embedded inside APK."
+            else
+              echo "::error::assets/index.html was not found inside the generated APK!"
+              exit 1
+            fi
           fi
 
           # Copy as the single standardized APK
@@ -133,14 +176,38 @@ jobs:
             echo "- **Target Architecture**: Universal (arm64-v8a, armeabi-v7a, x86, x86_64)" >> $GITHUB_STEP_SUMMARY
             echo "- **Target Android**: Android 7.0+ (API 24 to 34)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ The APK is ready for direct installation on Android devices via Artifacts download." >> $GITHUB_STEP_SUMMARY
+            echo "✅ The APK is ready for direct installation on Android devices." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: 10. Upload Single Release APK Artifact
+      - name: 11. Upload Single Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Sami-Android-APK
           path: build_output_apk/Sami-Android.apk
           if-no-files-found: error
           retention-days: 30
+          overwrite: true
 
+      - name: 12. Publish GitHub Release (Direct APK Download)
+        if: (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true') || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: ${{ github.event.inputs.release_tag || github.ref_name || 'v1.3.0' }}
+          name: Sami Android App ${{ github.event.inputs.release_tag || github.ref_name || 'v1.3.0' }}
+          files: build_output_apk/Sami-Android.apk
+          draft: false
+          prerelease: false
+          body: |
+            ### 📱 تطبيق Sami Android - النسخة الرسمية الكاملة
+            - **اسم الملف:** `Sami-Android.apk`
+            - **معرف الحزمة:** `com.sami.tradingchallengetracker`
+            - **الإصدار:** `1.3.0` (Build 11)
+            - **الدعم:** معمارية شاملة لجميع هواتف Android (Universal APK)
+            
+            #### طريقة التثبيت:
+            1. حمل ملف `Sami-Android.apk` مباشرة على هاتفك.
+            2. افتح الملف واضغط على **تثبيت** (Install).
+            3. يفتح التطبيق مباشرة في الواجهة الحقيقية بكامل البيانات وقاعدة البيانات.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

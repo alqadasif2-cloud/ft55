@@ -1141,6 +1141,25 @@ export const GroupChatScreen: React.FC<GroupChatScreenProps> = ({
             </form>
           </div>
         )}
+
+        {/* Subscription Details & VIP Terms Modal for Users */}
+        {viewingSubscriptionPlan && (
+          <SubscriptionDetailModal
+            key={viewingSubscriptionPlan.id}
+            plan={viewingSubscriptionPlan}
+            currentUser={currentUser}
+            onClose={() => setViewingSubscriptionPlan(null)}
+            onStartInquiry={(message) => {
+              setInputText(message);
+              setSelectedChannel(null);
+              setIsPrivateChatOpen(true);
+            }}
+            onRequestPackageSupport={(plan) => {
+              setViewingSubscriptionPlan(null);
+              onRequestPackageSupport?.(plan);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -1556,6 +1575,23 @@ export const GroupChatScreen: React.FC<GroupChatScreenProps> = ({
           title="عرض الصورة"
           onClose={() => setPreviewModalImage(null)}
         />
+
+        {/* Subscription Details & VIP Terms Modal for Private Chat */}
+        {viewingSubscriptionPlan && (
+          <SubscriptionDetailModal
+            key={viewingSubscriptionPlan.id}
+            plan={viewingSubscriptionPlan}
+            currentUser={currentUser}
+            onClose={() => setViewingSubscriptionPlan(null)}
+            onStartInquiry={(message) => {
+              setInputText(message);
+            }}
+            onRequestPackageSupport={(plan) => {
+              setViewingSubscriptionPlan(null);
+              onRequestPackageSupport?.(plan);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -1567,7 +1603,7 @@ export const GroupChatScreen: React.FC<GroupChatScreenProps> = ({
   const channelMembers = users.filter((u) => selectedChannel?.memberIds.includes(u.id));
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] sm:h-[calc(100vh-170px)] bg-[#0b101a]/95 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl relative font-['Cairo'] pb-1">
+    <div className="flex flex-col h-[calc(100dvh-90px)] sm:h-[calc(100vh-100px)] bg-[#0b101a]/95 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl relative font-['Cairo'] pb-1">
       <input
         type="file"
         ref={fileInputRef}
